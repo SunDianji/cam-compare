@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAM 品牌对照工具 - 以 BD 为基准</title>
+    <script src="data.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); min-height: 100vh; padding: 40px 20px; }
+        .container { max-width: 100%; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1); padding: 40px; }
+        .header { margin-bottom: 40px; text-align: center; }
+        .header h1 { font-size: 36px; color: #0f172a; margin-bottom: 8px; font-weight: 700; }
+        .header p { color: #64748b; font-size: 16px; }
+        .chart-title { font-size: 20px; font-weight: 600; color: #0f172a; margin-bottom: 24px; display: flex; align-items: center; gap: 8px; }
+        .chart-title::before { content: ''; width: 4px; height: 28px; background: linear-gradient(180deg, #3b82f6 0%, #8b5cf6 100%); border-radius: 2px; }
+        .comparison-wrapper { overflow-x: auto; background: #f8fafc; border-radius: 12px; padding: 24px; -webkit-overflow-scrolling: touch; }
+        .comparison-table { display: table; border-collapse: collapse; min-width: fit-content; }
+        .comparison-row { display: table-row; }
+        .comparison-cell { display: table-cell; border: 2px solid #cbd5e1; padding: 20px 16px; text-align: center; font-size: 16px; font-weight: 600; vertical-align: middle; cursor: pointer; transition: all 0.2s ease; min-height: 70px; }
+        .comparison-cell:hover { background: #f0f9ff; box-shadow: inset 0 0 8px rgba(59, 130, 246, 0.3); }
+        .bd-column { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); font-weight: 700; color: #92400e; min-width: 180px; position: sticky; left: 0; z-index: 10; }
+        .bd-header { background: linear-gradient(135deg, #fcd34d 0%, #fbbf24 100%); font-weight: 700; color: #78350f; min-width: 180px; position: sticky; left: 0; z-index: 11; font-size: 18px; padding: 24px 16px; }
+        .brand-header { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); font-weight: 700; color: #0c4a6e; min-width: 160px; font-size: 18px; padding: 24px 16px; }
+        .match-cell { background: #d1fae5; color: #065f46; font-weight: 700; }
+        .partial-match { background: #fef3c7; color: #92400e; font-weight: 700; }
+        .no-match { background: #fee2e2; color: #7f1d1d; font-weight: 600; }
+        .range-info { font-size: 13px; color: #64748b; margin-top: 6px; font-weight: 500; }
+        .legend { display: flex; flex-wrap: wrap; gap: 32px; margin-top: 32px; padding: 24px; background: #f8fafc; border-radius: 12px; }
+        .legend-item { display: flex; align-items: center; gap: 12px; font-size: 15px; color: #475569; font-weight: 500; }
+        .legend-color { width: 32px; height: 32px; border-radius: 8px; border: 2px solid #cbd5e1; }
+        .cam-item { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 6px 0; }
+        .cam-color-box { display: inline-block; width: 16px; height: 16px; border-radius: 3px; border: 1px solid #ccc; }
+        .cam-size { font-weight: 600; }
+        .cam-range { font-size: 12px; color: #666; }
+        .info-box { background: linear-gradient(135deg, #eff6ff 0%, #f0f4ff 100%); border: 2px solid #dbeafe; border-radius: 12px; padding: 20px; margin-bottom: 32px; font-size: 15px; color: #0c4a6e; line-height: 1.8; font-weight: 500; }
+        @media (max-width: 768px) { .container { padding: 24px; } .header h1 { font-size: 28px; } .comparison-cell { padding: 14px 10px; font-size: 13px; min-height: 50px; } .bd-column, .bd-header { min-width: 140px; } .brand-header { min-width: 120px; } .cam-range { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧗 CAM 品牌对照工具</h1>
+            <p>以 BD 为基准，快速查找其他品牌的替代型号</p>
+        </div>
+        <div class="info-box">
+            💡 <strong>使用说明：</strong>左列是 BD 的各个型号及其缝宽范围，右侧是其他品牌能覆盖该范围的型号。每个型号显示颜色标识、尺寸和缝宽范围。
+            <br>🟢 完全覆盖 = 该型号能完全覆盖 BD 的范围 | 🟡 部分覆盖 = 该型号能部分覆盖 BD 的范围 | 🔴 无法覆盖
+        </div>
+        <div class="chart-title">BD 型号对照表</div>
+        <div class="comparison-wrapper">
+            <div class="comparison-table" id="comparison-table"></div>
+        </div>
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #d1fae5;"></div>
+                <span>完全覆盖</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #fef3c7;"></div>
+                <span>部分覆盖</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #fee2e2;"></div>
+                <span>无法覆盖</span>
+            </div>
+        </div>
+    </div>
+    <script>
+        const camData = window.CAM_DATA || [];
+        const brandData = {};
+        camData.forEach(cam => {
+            if (!brandData[cam.brand]) brandData[cam.brand] = [];
+            brandData[cam.brand].push(cam);
+        });
+        const bdModels = [];
+        ['BD C4', 'BD Z4'].forEach(brand => {
+            if (brandData[brand]) {
+                brandData[brand].forEach(cam => {
+                    bdModels.push({ brand, size: cam.size, min: cam.min, max: cam.max, colorHex: cam.colorHex });
+                });
+            }
+        });
+        const otherBrands = Object.keys(brandData).filter(b => !b.startsWith('BD'));
+        function getCoverageStatus(bdMin, bdMax, otherMin, otherMax) {
+            const bdRange = bdMax - bdMin;
+            const overlap = Math.min(bdMax, otherMax) - Math.max(bdMin, otherMin);
+            if (overlap <= 0) return 'none';
+            if (otherMin <= bdMin && otherMax >= bdMax) return 'full';
+            const coverageRatio = overlap / bdRange;
+            if (coverageRatio >= 0.7) return 'partial';
+            return 'none';
+        }
+        function renderComparisonTable() {
+            const table = document.getElementById('comparison-table');
+            table.innerHTML = '';
+            const headerRow = document.createElement('div');
+            headerRow.className = 'comparison-row';
+            const bdHeader = document.createElement('div');
+            bdHeader.className = 'comparison-cell bd-header';
+            bdHeader.textContent = 'BD 型号';
+            headerRow.appendChild(bdHeader);
+            otherBrands.forEach(brand => {
+                const cell = document.createElement('div');
+                cell.className = 'comparison-cell brand-header';
+                cell.textContent = brand;
+                headerRow.appendChild(cell);
+            });
+            table.appendChild(headerRow);
+            bdModels.forEach(bdModel => {
+                const row = document.createElement('div');
+                row.className = 'comparison-row';
+                const bdCell = document.createElement('div');
+                bdCell.className = 'comparison-cell bd-column';
+                bdCell.innerHTML = `<div style="font-weight: 700; font-size: 17px;">${bdModel.brand} ${bdModel.size}</div><div class="range-info">${bdModel.min.toFixed(1)}-${bdModel.max.toFixed(1)}mm</div>`;
+                row.appendChild(bdCell);
+                otherBrands.forEach(brand => {
+                    const cell = document.createElement('div');
+                    cell.className = 'comparison-cell';
+                    const brandModels = brandData[brand];
+                    const matches = [];
+                    let bestCoverage = 'none';
+                    brandModels.forEach(cam => {
+                        const coverage = getCoverageStatus(bdModel.min, bdModel.max, cam.min, cam.max);
+                        if (coverage !== 'none') {
+                            matches.push({ size: cam.size, min: cam.min, max: cam.max, coverage, colorHex: cam.colorHex });
+                            if (coverage === 'full') bestCoverage = 'full';
+                            else if (coverage === 'partial' && bestCoverage !== 'full') bestCoverage = 'partial';
+                        }
+                    });
+                    if (matches.length === 0) {
+                        cell.className += ' no-match';
+                        cell.textContent = '—';
+                    } else if (bestCoverage === 'full') {
+                        cell.className += ' match-cell';
+                        cell.innerHTML = matches.map(m => `<div class="cam-item"><div class="cam-color-box" style="background: ${m.colorHex};"></div><span class="cam-size">${m.size}</span><span class="cam-range">${m.min.toFixed(1)}-${m.max.toFixed(1)}</span></div>`).join('');
+                        cell.title = matches.map(m => `${m.size}: ${m.min.toFixed(1)}-${m.max.toFixed(1)}mm`).join('\n');
+                    } else {
+                        cell.className += ' partial-match';
+                        cell.innerHTML = matches.map(m => `<div class="cam-item"><div class="cam-color-box" style="background: ${m.colorHex};"></div><span class="cam-size">${m.size}</span><span class="cam-range">${m.min.toFixed(1)}-${m.max.toFixed(1)}</span></div>`).join('');
+                        cell.title = matches.map(m => `${m.size}: ${m.min.toFixed(1)}-${m.max.toFixed(1)}mm (部分覆盖)`).join('\n');
+                    }
+                    row.appendChild(cell);
+                });
+                table.appendChild(row);
+            });
+        }
+        renderComparisonTable();
+    </script>
+</body>
+</html>

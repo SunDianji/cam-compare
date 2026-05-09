@@ -16,7 +16,7 @@
 
   // ---------- State ----------
   let crackWidth  = 25;
-  let activeBrand = 'all';
+  let activeBrands = new Set(['all']); // multi-select brands
   let sortByFit   = false;
   let onlyMine    = false;
   let rack        = loadRack(); // { id: count }
@@ -429,7 +429,7 @@
   // ---------- Match cards ----------
   function renderMatches() {
     let matches = data.filter(c => {
-      const brandOK = activeBrand === 'all' || activeBrand === c.brand;
+      const brandOK = activeBrands.has('all') || activeBrands.has(c.brand);
       const fitOK   = crackWidth >= c.min && crackWidth <= c.max;
       const mineOK  = !onlyMine || owned(c.id);
       return brandOK && fitOK && mineOK;
@@ -501,8 +501,9 @@
     });
 
     matchCount.textContent = matches.length;
+    const brandLabel = activeBrands.has('all') ? '' : ` · 仅 ${[...activeBrands].join('/')}`;
     matchSub.textContent = matches.length > 0
-      ? `当前 ${crackWidth}mm 能塞进的机械塞 · ${matches.length} 个${activeBrand !== 'all' ? ' · 仅 ' + activeBrand : ''}${onlyMine ? ' · 仅我拥有' : ''}`
+      ? `当前 ${crackWidth}mm 能塞进的机械塞 · ${matches.length} 个${brandLabel}${onlyMine ? ' · 仅我拥有' : ''}`
       : '当前缝宽下能塞进的机械塞';
   }
 
@@ -526,7 +527,7 @@
       const min = parseFloat(row.dataset.min);
       const max = parseFloat(row.dataset.max);
       const bar = row.querySelector('.bar');
-      const brandOK = activeBrand === 'all' || activeBrand === brand;
+      const brandOK = activeBrands.has('all') || activeBrands.has(brand);
       const fitOK   = crackWidth >= min && crackWidth <= max;
       const mineOK  = !onlyMine || owned(id);
       const show = brandOK && mineOK;
@@ -541,7 +542,7 @@
       const id    = tr.dataset.id;
       const min = parseFloat(tr.dataset.min);
       const max = parseFloat(tr.dataset.max);
-      const brandOK = activeBrand === 'all' || activeBrand === brand;
+      const brandOK = activeBrands.has('all') || activeBrands.has(brand);
       const fitOK   = crackWidth >= min && crackWidth <= max;
       const mineOK  = !onlyMine || owned(id);
       const show = brandOK && mineOK;
@@ -581,13 +582,48 @@
 
   brandChips.forEach(btn => {
     btn.addEventListener('click', () => {
+      const brand = btn.dataset.brand;
+
+      if (brand === 'all') {
+        // "全部" 按钮：切换全选/取消全选
+        if (activeBrands.has('all')) {
+          activeBrands.clear();
+          activeBrands.add('all');
+        } else {
+          activeBrands.clear();
+          activeBrands.add('all');
+        }
+      } else {
+        // 其他品牌：多选逻辑
+        if (activeBrands.has('all')) {
+          activeBrands.delete('all');
+        }
+
+        if (activeBrands.has(brand)) {
+          activeBrands.delete(brand);
+          // 如果删除后没有选中任何品牌，恢复为"全部"
+          if (activeBrands.size === 0) {
+            activeBrands.add('all');
+          }
+        } else {
+          activeBrands.add(brand);
+        }
+      }
+
+      // 更新按钮样式
       brandChips.forEach(b => {
-        b.classList.remove('active', 'bg-brand-800', 'text-white');
-        b.classList.add('bg-white', 'border', 'border-slate-200', 'text-slate-700');
+        const bBrand = b.dataset.brand;
+        const isActive = activeBrands.has(bBrand) || (bBrand !== 'all' && activeBrands.has('all'));
+
+        if (isActive) {
+          b.classList.add('active', 'bg-brand-800', 'text-white');
+          b.classList.remove('bg-white', 'border', 'border-slate-200', 'text-slate-700');
+        } else {
+          b.classList.remove('active', 'bg-brand-800', 'text-white');
+          b.classList.add('bg-white', 'border', 'border-slate-200', 'text-slate-700');
+        }
       });
-      btn.classList.add('active', 'bg-brand-800', 'text-white');
-      btn.classList.remove('bg-white', 'border', 'border-slate-200', 'text-slate-700');
-      activeBrand = btn.dataset.brand;
+
       applyBarsHighlight();
       renderMatches();
     });
